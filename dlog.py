@@ -23,10 +23,27 @@ GLOBAL_NAME = ".dlog.jsonl"
 NO_LOG_MSG = "no decisions logged yet — use `dlog add \"title\" -r \"reason\"` to record one"
 
 
+def _git_root() -> "str | None":
+    """Repo top-level dir, or None when not inside a git repo. Never raises."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
 def _log_path(global_scope: bool) -> str:
     if global_scope:
         return os.path.join(os.path.expanduser("~"), GLOBAL_NAME)
-    return os.path.join(os.getcwd(), LOCAL_NAME)
+    # One log per repo: running from a subdirectory must not split the log.
+    return os.path.join(_git_root() or os.getcwd(), LOCAL_NAME)
 
 
 def _git_sha() -> "str | None":
@@ -80,7 +97,9 @@ def cmd_add(args) -> int:
 def _fmt_time(ts: str) -> str:
     try:
         dt = datetime.datetime.fromisoformat(ts)
-        return dt.strftime("%m-%d %H:%M")
+        out = dt.strftime("%m-%d %H:%M")
+        # Entries are stored in UTC; label them so readers don't assume local.
+        return out + " UTC" if dt.tzinfo is not None else out
     except (ValueError, TypeError):
         return str(ts)
 
@@ -169,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
             "--global",
             dest="global_",
             action="store_true",
-            help=f"use ~/{GLOBAL_NAME} instead of ./{LOCAL_NAME} in cwd",
+            help=f"use ~/{GLOBAL_NAME} instead of ./{LOCAL_NAME} in the git repo root",
         )
 
     a = sub.add_parser("add", help="record a decision")

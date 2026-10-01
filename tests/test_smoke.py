@@ -120,6 +120,37 @@ class TestSmoke(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("usage", out.lower())
 
+    def test_subdir_writes_to_git_root(self):
+        """Running from a subdirectory must not split the log: entries go
+        to the git repo root, and `list` from the subdir sees them."""
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True, timeout=15)
+            sub = os.path.join(d, "a", "b")
+            os.makedirs(sub)
+            prev = os.getcwd()
+            os.chdir(sub)
+            try:
+                rc, _ = run(["add", "subdir decision", "-r", "git root"])
+                self.assertEqual(rc, 0)
+                self.assertTrue(os.path.exists(os.path.join(d, ".dlog.jsonl")))
+                self.assertFalse(os.path.exists(".dlog.jsonl"))
+                rc, out = run(["list"])
+                self.assertEqual(rc, 0)
+                self.assertIn("subdir decision", out)
+            finally:
+                os.chdir(prev)
+
+    def test_timestamps_labeled_utc(self):
+        """Displayed timestamps must say UTC instead of looking local."""
+        with tmp_cwd(None):
+            run(["add", "tz check", "-r", "label"])
+            _, out = run(["list"])
+            self.assertIn("UTC", out)
+            _, md = run(["export-md"])
+            self.assertIn("UTC", md)
+
 
 if __name__ == "__main__":
     unittest.main()
