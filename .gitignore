@@ -1,0 +1,20 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# local dev artifacts
+.env
+.dlog.jsonl
+
+# internal drafts never belong in the public repo
+PLAN.md
+promo-drafts.md
+devto-article.md
+devto-update-draft.md
+devto-contest-article.md
+dev_article.md
